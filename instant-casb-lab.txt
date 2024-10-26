@@ -1,0 +1,54 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  proxy:
+    image: nginx:alpine
+    ports:
+      - "8443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/certs:/etc/nginx/certs
+    depends_on:
+      - auth-service
+      - dlp-service
+      
+  auth-service:
+    image: keycloak/keycloak:latest
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin123
+      - DB_VENDOR=h2
+    ports:
+      - "8080:8080"
+
+  dlp-service:
+    build:
+      context: ./dlp
+      dockerfile: Dockerfile
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./dlp:/app
+    ports:
+      - "5000:5000"
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.9.3
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.9.3
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+
+volumes:
+  esdata:
